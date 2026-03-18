@@ -1,44 +1,32 @@
-import { ethers } from 'ethers';
-import logo from '../assets/logo.svg';
+const Navigation = ({ account, connectWallet, chainId, homesCount }) => {
+  return (
+    <nav className="nav">
+      <div className="nav__brand">
+        <div className="nav__mark">M</div>
+        <div>
+          <p>Millow</p>
+          <span>Tokenized real estate desk</span>
+        </div>
+      </div>
 
-const Navigation = ({ account, setAccount }) => {
-    const connectHandler = async () => {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        const account = ethers.utils.getAddress(accounts[0])
-        setAccount(account);
-    }
+      <div className="nav__links">
+        <a href="#marketplace">Marketplace</a>
+        <a href="#filters">Filters</a>
+        <a href="#closing">Closing Flow</a>
+      </div>
 
-    return (
-        <nav>
-            <ul className='nav__links'>
-                <li><a href="#">Buy</a></li>
-                <li><a href="#">Rent</a></li>
-                <li><a href="#">Sell</a></li>
-            </ul>
+      <div className="nav__actions">
+        <div className="nav__status">
+          <span>{homesCount} live listings</span>
+          <span>{chainId ? `Chain ${chainId}` : 'No network'}</span>
+        </div>
 
-            <div className='nav__brand'>
-                <img src={logo} alt="Logo" />
-                <h1>Millow</h1>
-            </div>
-
-            {account ? (
-                <button
-                    type="button"
-                    className='nav__connect'
-                >
-                    {account.slice(0, 6) + '...' + account.slice(38, 42)}
-                </button>
-            ) : (
-                <button
-                    type="button"
-                    className='nav__connect'
-                    onClick={connectHandler}
-                >
-                    Connect
-                </button>
-            )}
-        </nav>
-    );
-}
+        <button type="button" className="button button--primary" onClick={connectWallet}>
+          {account ? account.slice(0, 6) + '...' + account.slice(38, 42) : 'Connect Wallet'}
+        </button>
+      </div>
+    </nav>
+  );
+};
 
 export default Navigation;

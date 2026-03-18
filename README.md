@@ -1,31 +1,76 @@
-# Real Estate NFT DApp
+# Millow
 
-## Technology Stack & Tools
+Tokenized real estate marketplace built with Solidity, Hardhat, React, and Ethers.js.
 
-- Solidity (Writing Smart Contracts & Tests)
-- Javascript (React & Testing)
-- [Hardhat](https://hardhat.org/) (Development Framework)
-- [Ethers.js](https://docs.ethers.io/v5/) (Blockchain Interaction)
-- [React.js](https://reactjs.org/) (Frontend Framework)
+## Current state
 
-## Requirements For Initial Setup
-- Install [NodeJS](https://nodejs.org/en/)
+- Local marketplace flow works end to end.
+- The repo seeds 3 demo properties on deploy.
+- Users can buy seeded properties and create new listings from the frontend.
+- New custom listing metadata is still stored in browser local storage for demo purposes.
 
-## Setting Up
-### 1. Clone/Download the Repository
+## Stack
 
-### 2. Install Dependencies:
-`$ npm install`
+- Solidity
+- Hardhat
+- React
+- Ethers.js
 
-### 3. Run tests
-`$ npx hardhat test`
+## Local development
 
-### 4. Start Hardhat node
-`$ npx hardhat node`
+1. Install dependencies
 
-### 5. Run deployment script
-In a separate terminal execute:
-`$ npx hardhat run ./scripts/deploy.js --network localhost`
+```bash
+npm install
+```
 
-### 7. Start frontend
-`$ npm run start`
+2. Start a local chain
+
+```bash
+npx hardhat node
+```
+
+3. Deploy contracts and update frontend addresses
+
+```bash
+npx hardhat run ./scripts/deploy.js --network localhost
+```
+
+4. Start the frontend
+
+```bash
+npm start
+```
+
+## Test commands
+
+```bash
+npx hardhat test
+npm test -- --watchAll=false
+npm run build
+```
+
+## Sepolia preparation
+
+Copy `.env.example` to `.env` and fill in:
+
+- `SEPOLIA_RPC_URL`
+- `PRIVATE_KEY`
+- `ETHERSCAN_API_KEY`
+- `REACT_APP_CHAIN_ID`
+- `REACT_APP_REALESTATE_ADDRESS`
+- `REACT_APP_ESCROW_ADDRESS`
+
+Deploy contracts:
+
+```bash
+npx hardhat run ./scripts/deploy.js --network sepolia
+```
+
+Then set the matching `REACT_APP_*` values in Vercel before deploying the frontend.
+
+## Deployment notes
+
+- `scripts/deploy.js` writes local deploy addresses into [src/config.json](/Users/nipurngoyal/Documents/Projects/millow/src/config.json) for chain `31337`.
+- The frontend prefers `REACT_APP_*` contract addresses when they are set and the wallet is on the matching chain.
+- Before recording a public demo, replace local-storage metadata with IPFS or another public storage layer.
