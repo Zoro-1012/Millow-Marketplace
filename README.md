@@ -9,7 +9,7 @@ This project demonstrates full-stack Web3 development including smart contract d
 ## 🚀 Live Demo
 
 Frontend (Vercel):
-👉 [YOUR_VERCEL_LINK]
+👉 https://millow-marketplace.vercel.app/
 
 Smart Contracts (Sepolia):
 
