@@ -1,16 +1,19 @@
-require("@nomicfoundation/hardhat-toolbox");
+require("@nomiclabs/hardhat-ethers");
+require("@nomiclabs/hardhat-etherscan");
+require("dotenv").config();
 
 const { SEPOLIA_RPC_URL, PRIVATE_KEY, ETHERSCAN_API_KEY } = process.env;
 
 const accounts = PRIVATE_KEY ? [PRIVATE_KEY] : [];
 
-/** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: "0.8.17",
+
   networks: {
     localhost: {
       url: "http://127.0.0.1:8545",
     },
+
     ...(SEPOLIA_RPC_URL
       ? {
           sepolia: {
@@ -20,7 +23,10 @@ module.exports = {
         }
       : {}),
   },
+
   etherscan: {
-    apiKey: ETHERSCAN_API_KEY || "",
+    apiKey: {
+      sepolia: ETHERSCAN_API_KEY,
+    },
   },
 };

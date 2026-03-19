@@ -8,6 +8,7 @@ Tokenized real estate marketplace built with Solidity, Hardhat, React, and Ether
 - The repo seeds 3 demo properties on deploy.
 - Users can buy seeded properties and create new listings from the frontend.
 - New custom listing metadata is still stored in browser local storage for demo purposes.
+- There is no backend service in this repo yet.
 
 ## Stack
 
@@ -34,6 +35,13 @@ npx hardhat node
 
 ```bash
 npx hardhat run ./scripts/deploy.js --network localhost
+```
+
+Shortcuts:
+
+```bash
+npm run test:contracts
+npm run deploy:local
 ```
 
 4. Start the frontend
@@ -69,8 +77,15 @@ npx hardhat run ./scripts/deploy.js --network sepolia
 
 Then set the matching `REACT_APP_*` values in Vercel before deploying the frontend.
 
+Shortcut:
+
+```bash
+npm run deploy:sepolia
+```
+
 ## Deployment notes
 
 - `scripts/deploy.js` writes local deploy addresses into [src/config.json](/Users/nipurngoyal/Documents/Projects/millow/src/config.json) for chain `31337`.
 - The frontend prefers `REACT_APP_*` contract addresses when they are set and the wallet is on the matching chain.
 - Before recording a public demo, replace local-storage metadata with IPFS or another public storage layer.
+- A backend is optional for the current flow. Add one later only if you need indexing, notifications, auth, or admin APIs.
