@@ -1,4 +1,4 @@
-const Navigation = ({ account, connectWallet, chainId, homesCount }) => {
+const Navigation = ({ account, connectWallet, chainId, homesCount, isSupportedNetwork }) => {
   return (
     <nav className="nav">
       <div className="nav__brand">
@@ -18,7 +18,7 @@ const Navigation = ({ account, connectWallet, chainId, homesCount }) => {
       <div className="nav__actions">
         <div className="nav__status">
           <span>{homesCount} live listings</span>
-          <span>{chainId ? `Chain ${chainId}` : 'No network'}</span>
+          <span>{chainId ? isSupportedNetwork ? 'Sepolia' : `Wrong network (${chainId})` : 'Wallet not connected'}</span>
         </div>
 
         <button type="button" className="button button--primary" onClick={connectWallet}>

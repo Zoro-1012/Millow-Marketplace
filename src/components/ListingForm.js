@@ -14,7 +14,7 @@ const initialState = {
   escrowAmount: ''
 };
 
-const ListingForm = ({ account, pendingMessage, errorMessage, onConnect, onSubmit }) => {
+const ListingForm = ({ account, pendingMessage, errorMessage, successMessage, onConnect, onSubmit }) => {
   const [form, setForm] = useState(initialState);
 
   const handleChange = (event) => {
@@ -36,10 +36,7 @@ const ListingForm = ({ account, pendingMessage, errorMessage, onConnect, onSubmi
         <p className="eyebrow">Create listing</p>
         <h3>Mint a property NFT and list it for sale</h3>
         <p>
-          Enter the property details, image URL, sale price, and earnest amount. The app will mint a token, approve escrow, and list the property.
-        </p>
-        <p>
-          Custom listing metadata is currently stored in browser local storage for demo use. Move this to IPFS or hosted JSON before a public testnet demo.
+          Enter the property details, image URL, sale price, and earnest amount. The app will mint metadata directly into the token URI, approve escrow, and list the property on Sepolia.
         </p>
       </div>
 
@@ -117,6 +114,7 @@ const ListingForm = ({ account, pendingMessage, errorMessage, onConnect, onSubmi
         </div>
 
         {errorMessage && <div className="banner banner--error">{errorMessage}</div>}
+        {successMessage && <div className="banner banner--success">{successMessage}</div>}
       </form>
     </section>
   );

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import close from '../assets/close.svg';
 
+const SUPPORTED_CHAIN_ID = 11155111;
 const zeroAddress = ethers.constants.AddressZero;
 
 const formatAddress = (value) => {
@@ -12,7 +13,7 @@ const formatAddress = (value) => {
 
 const toEthNumber = (value) => Number(ethers.utils.formatUnits(value || 0, 'ether'));
 
-const Home = ({ home, provider, realEstate, account, escrow, connectWallet, onRefresh, togglePop }) => {
+const Home = ({ home, provider, realEstate, account, chainId, escrow, connectWallet, onRefresh, togglePop }) => {
   const [details, setDetails] = useState({
     buyer: home.contractBuyer || zeroAddress,
     seller: home.sellerAddress || zeroAddress,
@@ -30,6 +31,7 @@ const Home = ({ home, provider, realEstate, account, escrow, connectWallet, onRe
   const [isLoading, setIsLoading] = useState(true);
   const [txPending, setTxPending] = useState('');
   const [txError, setTxError] = useState('');
+  const [txSuccess, setTxSuccess] = useState('');
   const [relistForm, setRelistForm] = useState({
     purchasePrice: String(home.contractPurchasePrice || home.price || ''),
     escrowAmount: String(home.contractEscrowAmount || '')
@@ -46,7 +48,18 @@ const Home = ({ home, provider, realEstate, account, escrow, connectWallet, onRe
 
     try {
       const tokenId = home.id;
-      const [buyerAddress, sellerAddress, lenderAddress, inspectorAddress, ownerAddress, listed, purchasePrice, earnestDeposit, fundsDeposited, inspectionPassed] = await Promise.all([
+      const [
+        buyerAddress,
+        sellerAddress,
+        lenderAddress,
+        inspectorAddress,
+        ownerAddress,
+        listed,
+        purchasePrice,
+        earnestDeposit,
+        fundsDeposited,
+        inspectionPassed
+      ] = await Promise.all([
         escrow.buyer(tokenId),
         escrow.seller(tokenId),
         escrow.lender(),
@@ -105,21 +118,33 @@ const Home = ({ home, provider, realEstate, account, escrow, connectWallet, onRe
     return 'Wallet asset';
   })();
 
-  const runTransaction = async (label, action) => {
+  const runTransaction = async (label, successMessage, action) => {
+    if (!account) {
+      setTxError('Wallet not connected');
+      return;
+    }
+
+    if (chainId !== SUPPORTED_CHAIN_ID) {
+      setTxError('Wrong network');
+      return;
+    }
+
     if (!provider || !escrow) {
-      setTxError('Wallet provider is not ready.');
+      setTxError('Contracts not configured');
       return;
     }
 
     setTxPending(label);
     setTxError('');
+    setTxSuccess('');
 
     try {
       await action();
       await refreshDetails();
       await onRefresh();
+      setTxSuccess(successMessage);
     } catch (err) {
-      setTxError(err.reason || err.message || `${label} failed.`);
+      setTxError(err.code === 4001 ? 'Wallet not connected' : err.reason || err.message || `${label} failed.`);
     } finally {
       setTxPending('');
     }
@@ -131,7 +156,7 @@ const Home = ({ home, provider, realEstate, account, escrow, connectWallet, onRe
       return;
     }
 
-    await runTransaction('Depositing earnest', async () => {
+    await runTransaction('Depositing earnest', 'Earnest deposit confirmed.', async () => {
       const signer = provider.getSigner();
       const transaction = await escrow.connect(signer).depositEarnest(home.id, {
         value: ethers.utils.parseUnits(String(details.earnestDeposit), 'ether')
@@ -146,7 +171,7 @@ const Home = ({ home, provider, realEstate, account, escrow, connectWallet, onRe
       return;
     }
 
-    await runTransaction('Buying property', async () => {
+    await runTransaction('Buying property', 'Property purchase confirmed.', async () => {
       const signer = provider.getSigner();
       const transaction = await escrow.connect(signer).buyNow(home.id, {
         value: ethers.utils.parseUnits(String(details.purchasePrice), 'ether')
@@ -156,7 +181,7 @@ const Home = ({ home, provider, realEstate, account, escrow, connectWallet, onRe
   };
 
   const inspectHandler = async () => {
-    await runTransaction('Approving inspection', async () => {
+    await runTransaction('Approving inspection', 'Inspection approved on-chain.', async () => {
       const signer = provider.getSigner();
       const transaction = await escrow.connect(signer).updateInspectionStatus(home.id, true);
       await transaction.wait();
@@ -164,7 +189,7 @@ const Home = ({ home, provider, realEstate, account, escrow, connectWallet, onRe
   };
 
   const lendHandler = async () => {
-    await runTransaction('Funding sale', async () => {
+    await runTransaction('Funding sale', 'Sale funding confirmed.', async () => {
       const signer = provider.getSigner();
       const remainingBalance = Math.max(details.purchasePrice - details.fundsDeposited, 0);
       const transaction = await escrow.connect(signer).fundSale(home.id, {
@@ -175,7 +200,7 @@ const Home = ({ home, provider, realEstate, account, escrow, connectWallet, onRe
   };
 
   const sellerHandler = async () => {
-    await runTransaction('Seller approval in progress', async () => {
+    await runTransaction('Submitting seller action', 'Seller action confirmed.', async () => {
       const signer = provider.getSigner();
 
       if (!details.approvals.seller) {
@@ -210,7 +235,7 @@ const Home = ({ home, provider, realEstate, account, escrow, connectWallet, onRe
       return;
     }
 
-    await runTransaction('Relisting property', async () => {
+    await runTransaction('Relisting property', 'Property relisted successfully.', async () => {
       const signer = provider.getSigner();
 
       let transaction = await realEstate.connect(signer).approve(escrow.address, home.id);
@@ -260,6 +285,7 @@ const Home = ({ home, provider, realEstate, account, escrow, connectWallet, onRe
 
   const roleHint = (() => {
     if (!account) return 'Connect a wallet to reserve this property, list your own asset, or complete an escrow role.';
+    if (chainId !== SUPPORTED_CHAIN_ID) return 'Please switch to Sepolia network.';
     if (!details.isListed && isOwner) return 'You own this NFT. You can relist it into escrow below.';
     if (isBuyer) return `You reserved this property. Earnest required: ${details.earnestDeposit} ETH.`;
     if (isSeller) return sellerCanFinalize ? 'All conditions are met. Finalize the sale now.' : 'Approve the sale now; finalization becomes available after inspection and lender funding.';
@@ -434,7 +460,8 @@ const Home = ({ home, provider, realEstate, account, escrow, connectWallet, onRe
           )}
 
           <div className="banner">{roleHint}</div>
-          {isLoading && <div className="banner">Loading closing details...</div>}
+          {isLoading && <div className="banner">Loading on-chain listing details...</div>}
+          {txSuccess && <div className="banner banner--success">{txSuccess}</div>}
           {txError && <div className="banner banner--error">{txError}</div>}
 
           <div className="facts">

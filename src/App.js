@@ -11,6 +11,19 @@ import Escrow from './abis/Escrow.json';
 
 import config from './config.json';
 
+const SUPPORTED_CHAIN_ID = 11155111;
+const SEPOLIA_CHAIN_HEX = '0xaa36a7';
+const SEPOLIA_PARAMS = {
+  chainId: SEPOLIA_CHAIN_HEX,
+  chainName: 'Sepolia',
+  nativeCurrency: {
+    name: 'Sepolia ETH',
+    symbol: 'ETH',
+    decimals: 18
+  },
+  rpcUrls: ['https://rpc.sepolia.org'],
+  blockExplorerUrls: ['https://sepolia.etherscan.io']
+};
 const zeroAddress = ethers.constants.AddressZero;
 
 const formatAddress = (account) => {
@@ -24,47 +37,25 @@ const getAttributeValue = (home, traitType) => {
 };
 
 const toEthNumber = (value) => Number(ethers.utils.formatUnits(value || 0, 'ether'));
-const envChainId = process.env.REACT_APP_CHAIN_ID ? Number(process.env.REACT_APP_CHAIN_ID) : null;
-const envConfig =
-  process.env.REACT_APP_REALESTATE_ADDRESS && process.env.REACT_APP_ESCROW_ADDRESS
-    ? {
-        realEstate: { address: process.env.REACT_APP_REALESTATE_ADDRESS },
-        escrow: { address: process.env.REACT_APP_ESCROW_ADDRESS }
-      }
-    : null;
 
-const localMetadataPrefix = 'millow://listing/';
-const localMetadataStorageKey = 'millow:listing-metadata';
-
-const buildTokenURI = (listingId) => `${localMetadataPrefix}${listingId}`;
-
-const readLocalMetadataMap = () => {
-  try {
-    const raw = window.localStorage.getItem(localMetadataStorageKey);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-};
-
-const writeLocalMetadata = (uri, metadata) => {
-  const current = readLocalMetadataMap();
-  current[uri] = metadata;
-  window.localStorage.setItem(localMetadataStorageKey, JSON.stringify(current));
-};
+const buildTokenURI = (metadata) =>
+  `data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(metadata))}`;
 
 const resolveMetadata = async (uri) => {
-  if (uri.startsWith(localMetadataPrefix)) {
-    const stored = readLocalMetadataMap()[uri];
+  if (uri.startsWith('data:application/json')) {
+    const [, encodedPayload = ''] = uri.split(',', 2);
+    return JSON.parse(decodeURIComponent(encodedPayload));
+  }
 
-    if (!stored) {
-      throw new Error(`Metadata for ${uri} was not found in local storage.`);
-    }
-
-    return stored;
+  if (uri.startsWith('millow://')) {
+    throw new Error('Unsupported listing metadata. Refresh the listing with a Sepolia-compatible token URI.');
   }
 
   const response = await fetch(uri);
+  if (!response.ok) {
+    throw new Error('Unable to fetch property metadata.');
+  }
+
   return response.json();
 };
 
@@ -89,12 +80,50 @@ function App() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [listingFeedback, setListingFeedback] = useState({ pending: '', error: '' });
+  const [listingFeedback, setListingFeedback] = useState({
+    pending: '',
+    error: '',
+    success: ''
+  });
 
   const deferredSearch = useDeferredValue(searchInput);
 
+  const switchToSepolia = useCallback(async () => {
+    if (!window.ethereum) {
+      throw new Error('Wallet not connected');
+    }
+
+    try {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: SEPOLIA_CHAIN_HEX }]
+      });
+    } catch (err) {
+      if (err.code === 4902) {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [SEPOLIA_PARAMS]
+        });
+        return;
+      }
+
+      throw err;
+    }
+  }, []);
+
   const fetchListingSnapshot = useCallback(async (tokenId, realEstateContract, escrowContract) => {
-    const [inspectorAddress, lenderAddress, sellerAddress, buyerAddress, ownerAddress, isListed, purchasePrice, escrowAmount, fundsDeposited, inspectionPassed] = await Promise.all([
+    const [
+      inspectorAddress,
+      lenderAddress,
+      sellerAddress,
+      buyerAddress,
+      ownerAddress,
+      isListed,
+      purchasePrice,
+      escrowAmount,
+      fundsDeposited,
+      inspectionPassed
+    ] = await Promise.all([
       escrowContract.inspector(),
       escrowContract.lender(),
       escrowContract.seller(tokenId),
@@ -156,7 +185,7 @@ function App() {
       setEscrow(null);
       setHomes([]);
       setIsLoading(false);
-      setError('No injected wallet was detected. Install MetaMask and connect to the local Hardhat network.');
+      setError('Wallet not connected');
       return;
     }
 
@@ -166,19 +195,24 @@ function App() {
     try {
       const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
       const network = await web3Provider.getNetwork();
-      const networkConfig = envChainId === network.chainId && envConfig
-        ? envConfig
-        : config[network.chainId];
 
       setProvider(web3Provider);
       setChainId(network.chainId);
 
-      if (!networkConfig) {
+      if (network.chainId !== SUPPORTED_CHAIN_ID) {
         setRealEstate(null);
         setEscrow(null);
         setHomes([]);
-        setIsLoading(false);
-        setError(`Unsupported network detected: chain ${network.chainId}. Switch to your local Hardhat network (31337).`);
+        setError('Please switch to Sepolia network');
+        return;
+      }
+
+      const networkConfig = config[network.chainId];
+      if (!networkConfig?.realEstate?.address || !networkConfig?.escrow?.address) {
+        setRealEstate(null);
+        setEscrow(null);
+        setHomes([]);
+        setError('Contracts not configured');
         return;
       }
 
@@ -195,8 +229,10 @@ function App() {
         Array.from({ length: totalSupply }, async (_, index) => {
           const tokenId = index + 1;
           const uri = await realEstateContract.tokenURI(tokenId);
-          const metadata = await resolveMetadata(uri);
-          const snapshot = await fetchListingSnapshot(tokenId, realEstateContract, escrowContract);
+          const [metadata, snapshot] = await Promise.all([
+            resolveMetadata(uri),
+            fetchListingSnapshot(tokenId, realEstateContract, escrowContract)
+          ]);
 
           return {
             ...metadata,
@@ -219,9 +255,13 @@ function App() {
       setHomes([]);
       setRealEstate(null);
       setEscrow(null);
+
       const message = err.code === 'CALL_EXCEPTION'
-        ? 'Marketplace contracts are out of sync with the frontend. Restart your Hardhat node and run the deploy script again.'
-        : err.reason || err.message || 'Unable to load marketplace data.';
+        ? 'Contracts not configured'
+        : err.message?.includes('Unsupported listing metadata')
+          ? err.message
+          : 'Unable to load marketplace data.';
+
       setError(message);
     } finally {
       setIsLoading(false);
@@ -254,16 +294,23 @@ function App() {
 
   const connectWallet = async () => {
     if (!window.ethereum) {
-      setError('Install MetaMask to connect a wallet and interact with the marketplace.');
+      setError('Wallet not connected');
       return;
     }
 
     try {
+      await switchToSepolia();
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
       setAccount(ethers.utils.getAddress(accounts[0]));
       setError('');
+      await loadBlockchainData();
     } catch (err) {
-      setError(err.reason || err.message || 'Wallet connection failed.');
+      if (err.code === 4001) {
+        setError('Wallet not connected');
+        return;
+      }
+
+      setError(err.message || 'Wallet not connected');
     }
   };
 
@@ -291,13 +338,18 @@ function App() {
   };
 
   const handleCreateListing = async (formValues) => {
-    if (!provider || !realEstate || !escrow) {
-      setListingFeedback({ pending: '', error: 'Marketplace contracts are not ready. Restart your Hardhat node and redeploy the contracts.' });
+    if (!window.ethereum || !account) {
+      setListingFeedback({ pending: '', error: 'Wallet not connected', success: '' });
       return false;
     }
 
-    if (!account) {
-      await connectWallet();
+    if (chainId !== SUPPORTED_CHAIN_ID) {
+      setListingFeedback({ pending: '', error: 'Wrong network', success: '' });
+      return false;
+    }
+
+    if (!provider || !realEstate || !escrow) {
+      setListingFeedback({ pending: '', error: 'Contracts not configured', success: '' });
       return false;
     }
 
@@ -305,11 +357,11 @@ function App() {
     const escrowAmountValue = Number(formValues.escrowAmount);
 
     if (!purchasePriceValue || !escrowAmountValue || escrowAmountValue > purchasePriceValue) {
-      setListingFeedback({ pending: '', error: 'Enter a valid purchase price and an earnest deposit that does not exceed it.' });
+      setListingFeedback({ pending: '', error: 'Enter a valid purchase price and an earnest deposit that does not exceed it.', success: '' });
       return false;
     }
 
-    setListingFeedback({ pending: 'Minting and listing property...', error: '' });
+    setListingFeedback({ pending: 'Minting and listing property...', error: '', success: '' });
 
     try {
       const signer = provider.getSigner();
@@ -329,11 +381,7 @@ function App() {
         ]
       };
 
-      const listingId = `${Date.now()}-${account.toLowerCase()}`;
-      const tokenURI = buildTokenURI(listingId);
-      writeLocalMetadata(tokenURI, metadata);
-
-      const mintTransaction = await realEstate.connect(signer).mint(tokenURI);
+      const mintTransaction = await realEstate.connect(signer).mint(buildTokenURI(metadata));
       const mintReceipt = await mintTransaction.wait();
       const transferEvent = mintReceipt.events?.find((event) => event.event === 'Transfer');
       const tokenId = transferEvent?.args?.tokenId?.toNumber();
@@ -352,11 +400,19 @@ function App() {
       );
       await transaction.wait();
 
-      setListingFeedback({ pending: '', error: '' });
+      setListingFeedback({
+        pending: '',
+        error: '',
+        success: `Listing created successfully. Token #${tokenId} is now live on Sepolia.`
+      });
       await loadBlockchainData();
       return true;
     } catch (err) {
-      setListingFeedback({ pending: '', error: err.reason || err.message || 'Unable to create listing.' });
+      setListingFeedback({
+        pending: '',
+        error: err.code === 4001 ? 'Wallet not connected' : err.reason || err.message || 'Unable to create listing.',
+        success: ''
+      });
       return false;
     }
   };
@@ -411,6 +467,7 @@ function App() {
         connectWallet={connectWallet}
         chainId={chainId}
         homesCount={liveListings}
+        isSupportedNetwork={chainId === SUPPORTED_CHAIN_ID}
       />
 
       <Search
@@ -427,21 +484,29 @@ function App() {
           { label: 'Avg. Price', value: `${averagePrice} ETH` },
           { label: 'Largest Home', value: `${largestHome || 0} sqft` }
         ]}
-        accountLabel={account ? formatAddress(account) : 'Wallet not connected'}
+        accountLabel={
+          chainId === SUPPORTED_CHAIN_ID
+            ? account ? formatAddress(account) : 'Wallet not connected'
+            : 'Sepolia required'
+        }
       />
 
       <main className="market">
         <section className="market__header">
           <div>
-            <p className="eyebrow">Functional marketplace</p>
+            <p className="eyebrow">Sepolia Marketplace</p>
             <h2>Mint it, list it, reserve it, and close it.</h2>
             <p className="market__subtitle">
-              This flow now supports real property creation and open-market reservation through the escrow contract instead of only displaying seeded metadata.
+              The marketplace now reads deployed contracts from Sepolia and executes the full escrow flow as a production-style Web3 app.
             </p>
           </div>
           <div className="market__summary">
             <span>{visibleHomes.length} result{visibleHomes.length === 1 ? '' : 's'}</span>
-            <span>{account ? `Connected: ${formatAddress(account)}` : 'Connect a wallet to list or buy properties'}</span>
+            <span>
+              {chainId === SUPPORTED_CHAIN_ID
+                ? account ? `Connected: ${formatAddress(account)}` : 'Connect a wallet to list or buy properties'
+                : 'Please switch to Sepolia network'}
+            </span>
           </div>
         </section>
 
@@ -449,6 +514,7 @@ function App() {
           account={account}
           pendingMessage={listingFeedback.pending}
           errorMessage={listingFeedback.error}
+          successMessage={listingFeedback.success}
           onConnect={connectWallet}
           onSubmit={handleCreateListing}
         />
@@ -533,6 +599,7 @@ function App() {
           provider={provider}
           realEstate={realEstate}
           account={account}
+          chainId={chainId}
           escrow={escrow}
           connectWallet={connectWallet}
           onRefresh={loadBlockchainData}

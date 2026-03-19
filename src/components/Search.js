@@ -107,7 +107,7 @@ const Search = ({
 
         <div className="searchPanel__actions">
           <button type="button" className="button button--primary" onClick={onRefresh}>
-            Refresh on-chain data
+            Refresh Sepolia data
           </button>
           <button type="button" className="button button--secondary" onClick={onClearFilters}>
             Clear filters
