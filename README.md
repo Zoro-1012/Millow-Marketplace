@@ -1,91 +1,106 @@
-# Millow
+# 🏠 Millow Marketplace – Web3 Real Estate NFT Marketplace
 
-Tokenized real estate marketplace built with Solidity, Hardhat, React, and Ethers.js.
+Millow is a decentralized real estate marketplace where properties are represented as NFTs and transactions are handled via an on-chain escrow smart contract.
 
-## Current state
+This project demonstrates full-stack Web3 development including smart contract deployment, frontend integration, and decentralized transaction workflows.
 
-- Local marketplace flow works end to end.
-- The repo seeds 3 demo properties on deploy.
-- Users can buy seeded properties and create new listings from the frontend.
-- New custom listing metadata is still stored in browser local storage for demo purposes.
-- There is no backend service in this repo yet.
+---
 
-## Stack
+## 🚀 Live Demo
 
-- Solidity
-- Hardhat
+Frontend (Vercel):
+👉 [YOUR_VERCEL_LINK]
+
+Smart Contracts (Sepolia):
+
+RealEstate NFT:
+👉 https://sepolia.etherscan.io/address/0x384bAa32dD8Ed60F102b4227e61ca895D56Ee8e7
+
+Escrow Contract:
+👉 https://sepolia.etherscan.io/address/0x2fce900256b1f26b016F88D245c60901D0a97845
+
+---
+
+## ✨ Features
+
+- NFT based property ownership
+- Escrow powered secure transactions
+- Multi-party approval workflow
+- On-chain listing & purchase system
+- MetaMask wallet integration
+- Fully deployed Web3 frontend
+
+---
+
+## 🧠 Smart Contract Workflow
+
+1. Seller mints property NFT
+2. Property listed in escrow contract
+3. Buyer deposits earnest money
+4. Inspector approves inspection
+5. Lender approves financing
+6. Sale finalized on-chain
+
+---
+
+## 🛠 Tech Stack
+
+Frontend:
 - React
 - Ethers.js
+- Web3 Wallet Integration
 
-## Local development
+Blockchain:
+- Solidity
+- Hardhat
+- Ethereum Sepolia Testnet
 
-1. Install dependencies
+Infrastructure:
+- Vercel (Frontend Hosting)
+- Etherscan (Contract Verification)
 
-```bash
+---
+
+## 📂 Project Structure
+
+contracts → Solidity smart contracts  
+scripts → Deployment scripts  
+src → Frontend application  
+metadata → NFT metadata  
+
+---
+
+## ⚙️ Local Setup
+
+Clone repo:
+
+git clone <repo_link>
+
+Install dependencies:
+
 npm install
-```
 
-2. Start a local chain
+Run frontend:
 
-```bash
-npx hardhat node
-```
-
-3. Deploy contracts and update frontend addresses
-
-```bash
-npx hardhat run ./scripts/deploy.js --network localhost
-```
-
-Shortcuts:
-
-```bash
-npm run test:contracts
-npm run deploy:local
-```
-
-4. Start the frontend
-
-```bash
 npm start
-```
-
-## Test commands
-
-```bash
-npx hardhat test
-npm test -- --watchAll=false
-npm run build
-```
-
-## Sepolia preparation
-
-Copy `.env.example` to `.env` and fill in:
-
-- `SEPOLIA_RPC_URL`
-- `PRIVATE_KEY`
-- `ETHERSCAN_API_KEY`
-- `REACT_APP_CHAIN_ID`
-- `REACT_APP_REALESTATE_ADDRESS`
-- `REACT_APP_ESCROW_ADDRESS`
 
 Deploy contracts:
 
-```bash
-npx hardhat run ./scripts/deploy.js --network sepolia
-```
+npx hardhat run scripts/deploy.js --network sepolia
 
-Then set the matching `REACT_APP_*` values in Vercel before deploying the frontend.
+---
 
-Shortcut:
+## 📈 Future Improvements
 
-```bash
-npm run deploy:sepolia
-```
+- IPFS based metadata hosting
+- Role-based dashboards
+- Resale marketplace
+- Graph indexing
+- Production mainnet deployment
 
-## Deployment notes
+---
 
-- `scripts/deploy.js` writes local deploy addresses into [src/config.json](/Users/nipurngoyal/Documents/Projects/millow/src/config.json) for chain `31337`.
-- The frontend prefers `REACT_APP_*` contract addresses when they are set and the wallet is on the matching chain.
-- Before recording a public demo, replace local-storage metadata with IPFS or another public storage layer.
-- A backend is optional for the current flow. Add one later only if you need indexing, notifications, auth, or admin APIs.
+## 👨‍💻 Author
+
+Nipurn Goyal  
+Blockchain Developer
